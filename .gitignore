@@ -1,0 +1,51 @@
+# ============================================================
+# .gitignore — Files Git should NOT track
+# ============================================================
+
+# --- 1. Environment Secrets & Session Cookies (CRITICAL) ---
+.env
+auth.json
+*.session
+*.json.bak
+
+# --- 2. Database & Data Folders ---
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# --- 3. Python Virtual Environment ---
+venv/
+.venv/
+env/
+.env_dir/
+
+# --- 4. Python Bytecode & Caches ---
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- 5. Uploaded Resumes & Documents ---
+uploads/
+*.pdf
+*.docx
+*.txt
+
+# --- 6. Debug & Archive Scripts ---
+debug_archive/
+*.html
+*.png
+*.jpg
+*.jpeg
+
+# --- 7. IDE & OS Settings ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- 8. Logs ---
+*.log
