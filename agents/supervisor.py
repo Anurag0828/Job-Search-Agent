@@ -131,9 +131,13 @@ class SupervisorAgent:
 
             # Step 7: Send Email
             print("\n--- Step 7: Sending Email ---")
-            email_sent = self._send_email(final_recs)
-            if email_sent:
-                self._stats["recommendations_sent"] = len(final_recs)
+            if final_recs:
+                email_sent = self._send_email(final_recs)
+                if email_sent:
+                    self._stats["recommendations_sent"] = len(final_recs)
+            else:
+                print("[Supervisor] No new matching jobs found. Skipping email.")
+                email_sent = True # Consider it a success if we didn't crash
 
             # Step 8: Update run log
             status = "completed" if email_sent else "partial_failure"

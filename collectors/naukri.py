@@ -31,17 +31,17 @@ from services.browser_service import BrowserService
 
 SELECTORS = {
     # Job listing cards — multiple strategies (Naukri changes these frequently)
-    "job_cards": 'article.jobTuple',
+    "job_cards": 'div[data-job-id], article.jobTuple, div.srp-jobtuple-wrapper',
     "job_cards_alt": 'div[class*="jobTuple"], div[class*="srp-jobtuple"]',
     "job_cards_modern": 'div[data-job-id], div[class*="cust-job-tuple"]',
     "job_cards_generic": 'div.list > div[class*="tuple"], div.srp-jobtuple-wrapper article',
 
     # Within each card — title
-    "card_title": 'a.title, a[class*="title"], h2 a',
+    "card_title": 'a.title, [data-testid="title"], h2 a',
     "card_title_alt": 'a[class*="jobTitle"], a[class*="job-title"], div[class*="title"] a',
 
     # Within each card — company
-    "card_company": 'a.comp-name, a[class*="companyName"], span.comp-name, a[class*="comp-name"], span[class*="company"]',
+    "card_company": 'a.comp-name, [data-testid="company-name"], span.comp-name, a[class*="companyName"]',
 
     # Within each card — location
     "card_location": 'span.loc, span.locWdth, span[class*="location"], span[class*="loc-"]',
@@ -53,7 +53,7 @@ SELECTORS = {
     "card_experience": 'span.exp, span[class*="experience"], span[class*="exp-"]',
 
     # Within each card — description
-    "card_description": 'div.job-description, div[class*="jobDescription"], div[class*="job-desc"]',
+    "card_description": 'span.job-desc, div.job-description i + span, [data-testid="job-desc"], span[class*="job-desc"]',
 
     # Within each card — posted date
     "card_posted": 'span.date, span[class*="posted"], span[class*="date"], span[class*="freshness"]',

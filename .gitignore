@@ -33,6 +33,7 @@ uploads/
 *.pdf
 *.docx
 *.txt
+!requirements.txt
 
 # --- 6. Debug & Archive Scripts ---
 debug_archive/

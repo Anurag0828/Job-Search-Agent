@@ -293,7 +293,7 @@ class NotificationAgent:
         """
 
     def _build_job_card(self, rec: Recommendation, accent_color: str = "#2563eb") -> str:
-        """Build HTML for a single job recommendation card."""
+        """Build HTML for a single job recommendation card with HR contact and recency info."""
         # Score color based on match quality
         if rec.match_score >= 85:
             score_color = "#059669"  # Green
@@ -315,6 +315,38 @@ class NotificationAgent:
             </p>
             """
 
+        # HR Contact & Application Method HTML
+        hr_html = ""
+        hr_email = getattr(rec, 'hr_contact_email', None)
+        apply_method = getattr(rec, 'application_method', None)
+        is_urgent = getattr(rec, 'is_urgent', False)
+        
+        if hr_email:
+            hr_html += f"""
+            <p style="margin: 8px 0 0; font-size: 13px; color: #f72585; font-weight: 600;">
+                📧 HR Email: <a href="mailto:{hr_email}" style="color: #f72585;">{hr_email}</a>
+            </p>
+            """
+        if apply_method and apply_method != "Apply via job link":
+            hr_html += f"""
+            <p style="margin: 4px 0 0; font-size: 12px; color: #2563eb; font-weight: 600;">
+                📋 How to Apply: {apply_method}
+            </p>
+            """
+
+        # Urgency badge
+        urgency_badge = ""
+        if is_urgent:
+            urgency_badge = '<span style="display: inline-block; background: #fef2f2; color: #dc2626; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-left: 8px;">🔴 URGENT</span>'
+
+        # Recency badge
+        recency_badge = ""
+        posted_hours = getattr(rec, 'posted_hours_ago', None)
+        if posted_hours is not None and posted_hours <= 6:
+            recency_badge = '<span style="display: inline-block; background: #fef3c7; color: #d97706; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-left: 4px;">🔥 Fresh</span>'
+        elif posted_hours is not None and posted_hours <= 24:
+            recency_badge = '<span style="display: inline-block; background: #eff6ff; color: #2563eb; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; margin-left: 4px;">⏰ Today</span>'
+
         return f"""
         <!-- Job Card #{rec.rank_position} -->
         <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 12px; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background-color: #ffffff;">
@@ -325,6 +357,7 @@ class NotificationAgent:
             <tr>
                 <td style="vertical-align: top;">
                     <span style="font-size: 11px; color: #9ca3af;">#{rec.rank_position}</span>
+                    {urgency_badge}{recency_badge}
                     <h3 style="margin: 4px 0; font-size: 16px; color: #111827;">{rec.title}</h3>
                     <p style="margin: 0; font-size: 14px; color: #4b5563;">
                         {rec.company or 'Unknown Company'}
@@ -345,14 +378,16 @@ class NotificationAgent:
             </p>
 
             {missing_html}
+            {hr_html}
 
             <!-- Action Row -->
             <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 12px;">
             <tr>
                 <td>
                     <a href="{rec.job_url}" style="display: inline-block; background-color: {accent_color}; color: #ffffff; text-decoration: none; padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 600;">
-                        View Job
+                        View Job →
                     </a>
+                    {f'<a href="mailto:{hr_email}" style="display: inline-block; background-color: #f72585; color: #ffffff; text-decoration: none; padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 600; margin-left: 8px;">Email HR</a>' if hr_email else ''}
                 </td>
             </tr>
             </table>

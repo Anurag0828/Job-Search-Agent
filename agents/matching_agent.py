@@ -111,20 +111,33 @@ class MatchingAgent:
 
         print(f"[Matching] Found {len(unmatched_jobs)} unmatched jobs")
 
-        # Step 3: Layer 1 — Vector similarity (fast pre-filter)
+        # Step 3: Extract HR contacts & recency data for all jobs
+        print(f"\n--- Contact Extraction & Recency Analysis ---")
+        self._extract_contacts_and_recency(unmatched_jobs)
+
+        # Step 4: Layer 1 — Vector similarity (fast pre-filter)
         print(f"\n--- Layer 1: Vector Similarity ---")
         candidates = self._vector_match(profile, unmatched_jobs, top_k_vector)
         print(f"[Matching] Layer 1 selected {len(candidates)} candidates")
 
-        # Step 4: Layer 2 — LLM deep analysis (detailed scoring)
+        # Step 5: Layer 2 — LLM deep analysis (detailed scoring)
         print(f"\n--- Layer 2: LLM Deep Analysis ---")
         scored_jobs = self._llm_match(profile, candidates)
         print(f"[Matching] Layer 2 scored {len(scored_jobs)} jobs")
 
-        # Step 5: Sort by score (highest first)
+        # Step 6: Apply recency boost to scored jobs
+        print(f"\n--- Recency Boost ---")
+        for job in scored_jobs:
+            boost = self._calculate_recency_boost(job)
+            if boost > 0:
+                original = job.match_score
+                job.match_score = min(100.0, job.match_score + boost)
+                print(f"  [Recency] +{boost} boost for '{job.title}' ({original:.0f} → {job.match_score:.0f})")
+
+        # Step 7: Sort by score (highest first)
         scored_jobs.sort(key=lambda j: j.match_score, reverse=True)
 
-        # Step 6: Save scores to database
+        # Step 8: Save scores to database
         self._save_scores(scored_jobs)
 
         print(f"\n[Matching] Complete! Top score: "
@@ -169,20 +182,20 @@ class MatchingAgent:
         # Create profile text for embedding
         profile_text = self.embedder.create_profile_text(profile)
 
-        # Search for similar jobs
-        results = self.vector_store.find_similar(profile_text, top_k=top_k)
+        # Search for similar jobs across vector store
+        unmatched_urls = {j.get("url") for j in jobs if j.get("url")}
+        query_k = min(self.vector_store.get_count(), max(1000, len(jobs) * 2))
+        results = self.vector_store.find_similar(profile_text, top_k=query_k)
 
-        # Map results back to full job data
+        # Map results back to unmatched jobs and take top_k
+        result_map = {r["url"]: r["similarity_score"] for r in results if r.get("url") in unmatched_urls}
+        matched_jobs = [j for j in jobs if j.get("url") in result_map]
+        matched_jobs.sort(key=lambda j: result_map.get(j.get("url"), 0), reverse=True)
+
         candidates = []
-        result_urls = {r["url"] for r in results}
-        for job in jobs:
-            if job.get("url") in result_urls:
-                # Add the vector similarity score
-                for r in results:
-                    if r["url"] == job.get("url"):
-                        job["vector_score"] = r["similarity_score"]
-                        break
-                candidates.append(job)
+        for job in matched_jobs[:top_k]:
+            job["vector_score"] = result_map.get(job.get("url"), 0.0)
+            candidates.append(job)
 
         return candidates
 
@@ -332,6 +345,69 @@ Return ONLY the JSON, no other text.
             match_rationale=rationale,
             missing_skills=missing_skills,
         )
+
+    # ================================================================
+    # RECENCY BOOST & CONTACT EXTRACTION
+    # ================================================================
+
+    def _extract_contacts_and_recency(self, jobs: list[dict]):
+        """
+        Run contact extraction and recency parsing on all jobs.
+        Updates the job dicts in-place with hr_email, application_method,
+        posted_hours_ago, and is_urgent.
+        """
+        from agents.contact_extractor import get_contact_extractor
+        extractor = get_contact_extractor()
+        
+        contacts_found = 0
+        for job in jobs:
+            desc = job.get('description', '') or ''
+            info = extractor.extract(desc)
+            
+            job['hr_contact_email'] = info.hr_email
+            job['application_method'] = info.application_method
+            job['is_urgent'] = info.is_urgent
+            
+            # Parse posted_date into hours ago
+            posted_date = job.get('posted_date', '')
+            hours_ago = extractor.parse_posted_hours_ago(posted_date)
+            job['posted_hours_ago'] = hours_ago
+            
+            if info.hr_email:
+                contacts_found += 1
+        
+        print(f"[Matching] Extracted HR contacts from {contacts_found}/{len(jobs)} jobs")
+
+    def _calculate_recency_boost(self, job) -> float:
+        """
+        Calculate a score boost based on how recently the job was posted.
+        
+        Recency Boost Table:
+            < 6 hours ago  → +10 points
+            < 24 hours ago → +5 points  
+            < 48 hours ago → +2 points
+            Older          → +0 points
+        """
+        hours_ago = getattr(job, '_posted_hours_ago', None)
+        
+        # Try to get from the job dict if it was stored during extraction
+        if hours_ago is None:
+            from agents.contact_extractor import ContactExtractor
+            hours_ago = ContactExtractor.parse_posted_hours_ago(
+                getattr(job, 'posted_date', '') or ''
+            )
+        
+        if hours_ago is None:
+            return 0.0
+        
+        if hours_ago <= 6:
+            return 10.0
+        elif hours_ago <= 24:
+            return 5.0
+        elif hours_ago <= 48:
+            return 2.0
+        
+        return 0.0
 
     # ================================================================
     # HELPER METHODS

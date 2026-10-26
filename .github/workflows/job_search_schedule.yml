@@ -1,0 +1,59 @@
+name: Scheduled AI Job Search Agent
+
+on:
+  schedule:
+    # Runs every 8 hours (00:00, 08:00, 16:00 UTC)
+    - cron: '0 */8 * * *'
+  workflow_dispatch: # Enables manual "Run workflow" button in GitHub Actions tab
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Playwright Chromium
+        run: |
+          python -m playwright install --with-deps chromium
+
+      - name: Run Unit Tests
+        run: |
+          pytest tests/ -v
+
+      - name: Execute Autonomous Job Search Pipeline
+        env:
+          LLM_PROVIDER: nvidia
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          NVIDIA_MODEL: openai/gpt-oss-20b
+          EMBEDDING_PROVIDER: nvidia
+          NVIDIA_EMBED_MODEL: nvidia/nemotron-3-embed-1b
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
+          EMAIL_SMTP_HOST: smtp.gmail.com
+          EMAIL_SMTP_PORT: 587
+          SEARCH_QUERIES: Junior AI Engineer,AI Engineer
+          SEARCH_LOCATIONS: India
+          MIN_MATCH_SCORE: 65
+          MAX_RECOMMENDATIONS: 10
+          ENABLE_LINKEDIN_JOBS: "true"
+          ENABLE_LINKEDIN_POSTS: "false"
+          ENABLE_NAUKRI: "false"
+          ENABLE_INDEED: "false"
+          LOG_LEVEL: INFO
+        run: |
+          python cli.py run-all

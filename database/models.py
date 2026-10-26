@@ -159,6 +159,19 @@ class JobPostingModel(Base):
     # Skills required by the job but missing from user's profile
     missing_skills = Column(JSON, nullable=True)
 
+    # ---- HR Contact & Application Info (filled by ContactExtractor) ----
+    # HR email address extracted from job description (e.g., "hr@company.com")
+    hr_contact_email = Column(String(300), nullable=True)
+
+    # How to apply: "Email resume to hr@x.com", "DM recruiter on LinkedIn", "Apply via portal"
+    application_method = Column(String(500), nullable=True)
+
+    # How many hours ago this job was posted (for recency scoring)
+    posted_hours_ago = Column(Integer, nullable=True)
+
+    # Whether this is an urgent hire ("ASAP", "Immediate joining", etc.)
+    is_urgent = Column(Boolean, default=False)
+
     # ---- Deduplication ----
     # Has this job been identified as a duplicate of another?
     is_duplicate = Column(Boolean, default=False)

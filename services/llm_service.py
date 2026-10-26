@@ -32,9 +32,26 @@
 # ============================================================
 
 import json
+import time
 from typing import Optional, Type
 from pydantic import BaseModel
 from config.settings import settings
+
+
+class RateLimiter:
+    """Token bucket algorithm for strict API rate limiting."""
+    def __init__(self, rpm: int = 40):
+        self.rpm = rpm
+        self.interval = 60.0 / rpm
+        self.last_call_time = 0.0
+
+    def wait_if_needed(self):
+        now = time.time()
+        time_since_last = now - self.last_call_time
+        if time_since_last < self.interval:
+            sleep_time = self.interval - time_since_last
+            time.sleep(sleep_time)
+        self.last_call_time = time.time()
 
 
 class LLMService:
@@ -56,6 +73,7 @@ class LLMService:
         """
         self.provider = settings.LLM_PROVIDER.lower()
         self.client = None
+        self.rate_limiter = RateLimiter(rpm=35) # 35 RPM to be safe under the 40 limit
 
         if self.provider == "openai":
             self._init_openai()
@@ -90,8 +108,9 @@ class LLMService:
         print(f"[LLM] Initialized OpenAI with model: {self.model}")
 
     def _init_nvidia(self):
-        """Set up the NVIDIA NIM client (OpenAI compatible API)."""
+        """Set up the NVIDIA NIM client with model pool rotation."""
         from openai import OpenAI
+        from services.model_pool import get_model_pool
 
         if not settings.NVIDIA_API_KEY:
             raise ValueError(
@@ -103,8 +122,10 @@ class LLMService:
             base_url="https://integrate.api.nvidia.com/v1",
             api_key=settings.NVIDIA_API_KEY
         )
-        self.model = settings.NVIDIA_MODEL
-        print(f"[LLM] Initialized NVIDIA NIM with model: {self.model}")
+        # Use the model pool for automatic rotation on rate limits
+        self.model_pool = get_model_pool()
+        self.model = self.model_pool.get_best_model()
+        print(f"[LLM] Initialized NVIDIA NIM with model pool. Primary: {self.model}")
 
     def _init_gemini(self):
         """Set up the Google Gemini client."""
@@ -166,7 +187,7 @@ class LLMService:
                 system_prompt="You are a job market analyst.",
             )
         """
-        import time
+        self.rate_limiter.wait_if_needed()
         max_retries = 3
         for attempt in range(max_retries):
             try:
@@ -178,10 +199,17 @@ class LLMService:
                     return self._call_claude(prompt, system_prompt, temperature, max_tokens)
             except Exception as e:
                 err_str = str(e).lower()
-                if ("429" in err_str or "rate" in err_str or "limit" in err_str or "503" in err_str) and attempt < max_retries - 1:
-                    sleep_time = (2 ** attempt) * 2.0
-                    print(f"[LLM Rate Limit Guardrail] Caught rate limit ({e}). Retrying in {sleep_time}s (Attempt {attempt+1}/{max_retries})...")
-                    time.sleep(sleep_time)
+                is_rate_limit = ("429" in err_str or "rate" in err_str or "limit" in err_str or "503" in err_str)
+                if is_rate_limit and attempt < max_retries - 1:
+                    # If using NVIDIA with model pool, rotate to next model
+                    if self.provider == "nvidia" and hasattr(self, 'model_pool'):
+                        self.model_pool.report_rate_limit(self.model)
+                        self.model = self.model_pool.get_best_model()
+                        print(f"[LLM] Rotated to model: {self.model}")
+                    else:
+                        sleep_time = (2 ** attempt) * 2.0
+                        print(f"[LLM Rate Limit Guardrail] Caught rate limit ({e}). Retrying in {sleep_time}s (Attempt {attempt+1}/{max_retries})...")
+                        time.sleep(sleep_time)
                 else:
                     raise e
         return ""

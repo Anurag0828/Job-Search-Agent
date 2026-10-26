@@ -127,6 +127,42 @@ def cmd_email():
     init_database()
     sup = SupervisorAgent()
     recs = sup._run_ranking()
+    
+    if not recs:
+        print("[CLI] No new unrecommended jobs from this run. Falling back to top scored jobs in DB...")
+        db = get_db()
+        try:
+            top_jobs = (
+                db.query(JobPostingModel)
+                .filter(
+                    JobPostingModel.match_score.isnot(None),
+                    JobPostingModel.match_score >= 65,
+                    JobPostingModel.is_duplicate == False,
+                )
+                .order_by(JobPostingModel.match_score.desc())
+                .limit(10)
+                .all()
+            )
+            if top_jobs:
+                from schemas.recommendation import Recommendation
+                recs = [
+                    Recommendation(
+                        job_posting_id=j.id,
+                        title=j.title,
+                        company=j.company or "Unknown Company",
+                        location=j.location or "India",
+                        job_url=j.url or "",
+                        platform=j.platform or "linkedin_jobs",
+                        match_score=float(j.match_score or 0.0),
+                        rationale=j.match_rationale or "Strong match based on resume profile.",
+                        missing_skills=j.missing_skills or [],
+                        rank_position=i + 1,
+                    )
+                    for i, j in enumerate(top_jobs)
+                ]
+        finally:
+            db.close()
+
     sent = sup._send_email(recs)
     if sent:
         print("\n[SUCCESS] Email digest sent to your inbox!")
