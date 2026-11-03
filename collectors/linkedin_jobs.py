@@ -104,7 +104,7 @@ class LinkedInJobsCollector(BaseCollector):
             5. Wait for results to load
             6. Try to apply "Past 24 hours" filter
         """
-        # Step 1: Navigate to LinkedIn Jobs (with 2-day recency filter)
+        # Step 1: Navigate to LinkedIn Jobs (Past 24 hours & sorted by most recent date)
         import urllib.parse
         encoded_q = urllib.parse.quote_plus(query)
         encoded_l = urllib.parse.quote_plus(location)
@@ -112,15 +112,15 @@ class LinkedInJobsCollector(BaseCollector):
             f"https://www.linkedin.com/jobs/search/"
             f"?keywords={encoded_q}"
             f"&location={encoded_l}"
-            f"&f_TPR=r172800"  # Past 2 days (172800 seconds)
-            f"&f_E=2"          # Entry Level
+            f"&f_TPR=r86400"  # Past 24 hours (super fresh)
+            f"&sortBy=DD"    # Sort by Most Recent date
         )
-        print(f"[LinkedIn] Navigating to LinkedIn Jobs (last 2 days)...")
+        print(f"[LinkedIn] Navigating to LinkedIn Jobs (past 24h, newest first)...")
         try:
-            await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
         except Exception as e:
             print(f"[LinkedIn] Note: page.goto threw an error (possibly a redirect): {e}")
-        await self.browser.human_delay(2.0, 3.0)
+        await self.browser.human_delay(1.5, 2.5)
 
         # Step 2: Fill in the search keyword
         print(f"[LinkedIn] Searching for: '{query}'...")
@@ -199,7 +199,8 @@ class LinkedInJobsCollector(BaseCollector):
         cards = await page.query_selector_all(SELECTORS["job_cards"])
         print(f"[LinkedIn] Found {len(cards)} job cards")
 
-        for i, card in enumerate(cards):
+        # Process top 10 freshest cards to keep extraction fast and responsive
+        for i, card in enumerate(cards[:10]):
             try:
                 job = await self._extract_single_job(page, card, i)
                 if job:
@@ -260,14 +261,21 @@ class LinkedInJobsCollector(BaseCollector):
         if not title or not job_url:
             return None
 
-        # Click the card to load the full job description
+        # Extract posted date from card or detail
         description = ""
         posted_date = ""
         salary = ""
 
         try:
+            time_el = await card.query_selector("time, span.posted-time-ago__text, span.job-search-card__listdate")
+            if time_el:
+                posted_date = (await time_el.text_content()).strip()
+        except Exception:
+            pass
+
+        try:
             await card.click()
-            await self.browser.human_delay(1.0, 2.0)
+            await self.browser.human_delay(0.8, 1.5)
 
             # Extract full description from the detail panel
             desc_el = await page.query_selector(SELECTORS["detail_description"])
@@ -278,6 +286,11 @@ class LinkedInJobsCollector(BaseCollector):
             salary_el = await page.query_selector(SELECTORS["detail_salary"])
             if salary_el:
                 salary = (await salary_el.text_content()).strip()
+
+            if not posted_date:
+                detail_time = await page.query_selector(SELECTORS["detail_posted"])
+                if detail_time:
+                    posted_date = (await detail_time.text_content()).strip()
 
         except Exception as e:
             # If clicking fails, we still have the basic info

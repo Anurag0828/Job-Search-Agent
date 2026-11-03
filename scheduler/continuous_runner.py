@@ -145,15 +145,23 @@ def start_scheduler():
             misfire_grace_time=1800,
         )
 
-    # --- Full Pipeline (complete analysis + email digest) ---
+    # --- Full Pipeline (at 8:00 AM and 8:00 PM daily) ---
     scheduler.add_job(
         run_full_pipeline,
-        trigger="interval",
-        hours=6,
-        id="full_pipeline_6h",
-        name="Full Pipeline (6-Hourly)",
+        trigger="cron",
+        hour="8,20",
+        minute="0",
+        id="full_pipeline_8am_8pm",
+        name="Full Pipeline (8:00 AM & 8:00 PM Daily)",
         misfire_grace_time=3600,
-        next_run_time=datetime.now(),  # Run immediately on startup!
+    )
+
+    # Run once immediately on startup to get fresh jobs right away
+    scheduler.add_job(
+        run_full_pipeline,
+        id="full_pipeline_startup",
+        name="Full Pipeline (Immediate Startup Run)",
+        next_run_time=datetime.now(),
     )
 
     try:

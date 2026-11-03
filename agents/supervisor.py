@@ -136,7 +136,7 @@ class SupervisorAgent:
                 if email_sent:
                     self._stats["recommendations_sent"] = len(final_recs)
             else:
-                print("[Supervisor] No new recommendations from current run. Checking for top scored jobs in database...")
+                print("[Supervisor] No new recommendations from current run. Checking for fresh scored jobs in database...")
                 db = get_db()
                 try:
                     fallback_jobs = (
@@ -144,13 +144,24 @@ class SupervisorAgent:
                         .filter(
                             JobPostingModel.match_score.isnot(None),
                             JobPostingModel.match_score >= settings.MIN_MATCH_SCORE,
-                            JobPostingModel.is_duplicate == False,
                         )
-                        .order_by(JobPostingModel.match_score.desc())
-                        .limit(settings.MAX_RECOMMENDATIONS)
+                        .order_by(JobPostingModel.collected_at.desc(), JobPostingModel.match_score.desc())
+                        .limit(settings.MAX_RECOMMENDATIONS * 3)
                         .all()
                     )
-                    if fallback_jobs:
+                    
+                    # Deduplicate by title & company so identical postings never repeat
+                    seen_title_company = set()
+                    unique_fallback = []
+                    for j in fallback_jobs:
+                        key = (j.title.strip().lower(), (j.company or "").strip().lower())
+                        if key not in seen_title_company:
+                            seen_title_company.add(key)
+                            unique_fallback.append(j)
+                        if len(unique_fallback) >= settings.MAX_RECOMMENDATIONS:
+                            break
+
+                    if unique_fallback:
                         from schemas.recommendation import Recommendation
                         fallback_recs = [
                             Recommendation(
@@ -165,9 +176,9 @@ class SupervisorAgent:
                                 missing_skills=j.missing_skills or [],
                                 rank_position=i + 1,
                             )
-                            for i, j in enumerate(fallback_jobs)
+                            for i, j in enumerate(unique_fallback)
                         ]
-                        print(f"[Supervisor] Found {len(fallback_recs)} top matched jobs in database for digest.")
+                        print(f"[Supervisor] Found {len(fallback_recs)} unique matched jobs for digest.")
                         email_sent = self._send_email(fallback_recs)
                         if email_sent:
                             self._stats["recommendations_sent"] = len(fallback_recs)

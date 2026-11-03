@@ -82,7 +82,7 @@ class MatchingAgent:
     # MAIN METHOD — Run the full matching pipeline
     # ================================================================
 
-    def match_jobs(self, top_k_vector: int = 30, top_k_final: int = 15) -> list[JobPostingWithScore]:
+    def match_jobs(self, top_k_vector: int = 10, top_k_final: int = 10) -> list[JobPostingWithScore]:
         """
         Run the complete two-layer matching pipeline.
         

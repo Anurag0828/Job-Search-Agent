@@ -129,7 +129,7 @@ def cmd_email():
     recs = sup._run_ranking()
     
     if not recs:
-        print("[CLI] No new unrecommended jobs from this run. Falling back to top scored jobs in DB...")
+        print("[CLI] No new unrecommended jobs from this run. Falling back to fresh scored jobs in DB...")
         db = get_db()
         try:
             top_jobs = (
@@ -137,13 +137,23 @@ def cmd_email():
                 .filter(
                     JobPostingModel.match_score.isnot(None),
                     JobPostingModel.match_score >= 65,
-                    JobPostingModel.is_duplicate == False,
                 )
-                .order_by(JobPostingModel.match_score.desc())
-                .limit(10)
+                .order_by(JobPostingModel.collected_at.desc(), JobPostingModel.match_score.desc())
+                .limit(30)
                 .all()
             )
-            if top_jobs:
+            # Deduplicate by title & company
+            seen_title_company = set()
+            unique_top_jobs = []
+            for j in top_jobs:
+                key = (j.title.strip().lower(), (j.company or "").strip().lower())
+                if key not in seen_title_company:
+                    seen_title_company.add(key)
+                    unique_top_jobs.append(j)
+                if len(unique_top_jobs) >= 10:
+                    break
+
+            if unique_top_jobs:
                 from schemas.recommendation import Recommendation
                 recs = [
                     Recommendation(
@@ -158,7 +168,7 @@ def cmd_email():
                         missing_skills=j.missing_skills or [],
                         rank_position=i + 1,
                     )
-                    for i, j in enumerate(top_jobs)
+                    for i, j in enumerate(unique_top_jobs)
                 ]
         finally:
             db.close()
