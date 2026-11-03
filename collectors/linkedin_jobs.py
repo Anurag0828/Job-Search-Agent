@@ -37,24 +37,24 @@ from services.browser_service import BrowserService
 
 SELECTORS = {
     # Search form
-    "search_keywords": 'input[id*="jobs-search-box-keyword"]',
-    "search_location": 'input[id*="jobs-search-box-location"]',
-    "search_button": 'button.jobs-search-box__submit-button',
+    "search_keywords": 'input[id*="jobs-search-box-keyword"], input[name="keywords"], input.jobs-search-box__text-input',
+    "search_location": 'input[id*="jobs-search-box-location"], input[name="location"]',
+    "search_button": 'button.jobs-search-box__submit-button, button[type="submit"]',
 
-    # Job listing cards (in the left sidebar)
-    "job_cards": '.job-card-container',
-    "job_card_link": 'a.job-card-container__link',
-    "job_card_title": '.job-card-list__title--link span',
-    "job_card_company": '.artdeco-entity-lockup__subtitle span',
-    "job_card_location": '.artdeco-entity-lockup__caption span',
-    "job_card_metadata": '.job-card-container__metadata-wrapper span',
+    # Job listing cards (both logged-in and guest public search)
+    "job_cards": '.job-card-container, .base-search-card, .job-search-card, ul.jobs-search__results-list li',
+    "job_card_link": 'a.job-card-container__link, a.base-card__full-link, a[href*="/jobs/view/"]',
+    "job_card_title": '.job-card-list__title--link span, h3.base-search-card__title, h3',
+    "job_card_company": '.artdeco-entity-lockup__subtitle span, h4.base-search-card__subtitle a, h4.base-search-card__subtitle',
+    "job_card_location": '.artdeco-entity-lockup__caption span, span.job-search-card__location',
+    "job_card_metadata": '.job-card-container__metadata-wrapper span, time',
 
-    # Job detail panel (right side when you click a job)
-    "detail_title": 'h1.t-24',
-    "detail_company": '.job-details-jobs-unified-top-card__company-name a',
-    "detail_location": '.job-details-jobs-unified-top-card__primary-description-container span',
-    "detail_description": '.jobs-description__content',
-    "detail_posted": '.job-details-jobs-unified-top-card__primary-description-container span',
+    # Job detail panel (right side or public job page)
+    "detail_title": 'h1.t-24, h1.top-card-layout__title, h1',
+    "detail_company": '.job-details-jobs-unified-top-card__company-name a, a.topcard__org-name-link, span.topcard__flavor',
+    "detail_location": '.job-details-jobs-unified-top-card__primary-description-container span, span.topcard__flavor--bullet',
+    "detail_description": '.jobs-description__content, .show-more-less-html__markup, .description__text',
+    "detail_posted": '.job-details-jobs-unified-top-card__primary-description-container span, span.posted-time-ago__text',
     "detail_salary": '.job-details-jobs-unified-top-card__job-insight--highlight span',
 
     # Filters
@@ -63,7 +63,7 @@ SELECTORS = {
     "apply_filter": 'button[data-control-name="filter_pill_apply"]',
 
     # Pagination
-    "next_page": 'button[aria-label="View next page"], button.jobs-search-pagination__button--next',
+    "next_page": 'button[aria-label="View next page"], button.jobs-search-pagination__button--next, button.infinite-scroller__show-more-button',
 
     # Results count
     "results_count": '.jobs-search-results-list__subtitle',

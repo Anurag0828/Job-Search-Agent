@@ -46,6 +46,17 @@ jobs:
           python cli.py ingest --file "Anurag_Sajwan_Resume_Oct.pdf"
           python cli.py status
 
+      - name: Restore Saved Login Session
+        env:
+          AUTH_JSON: ${{ secrets.AUTH_JSON }}
+        run: |
+          if [ -n "$AUTH_JSON" ]; then
+            echo "$AUTH_JSON" > auth.json
+            echo "auth.json restored successfully."
+          else
+            echo "No AUTH_JSON found, running in guest mode."
+          fi
+
       - name: Execute Autonomous Job Search Pipeline
         env:
           LLM_PROVIDER: nvidia
