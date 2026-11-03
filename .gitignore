@@ -34,6 +34,7 @@ uploads/
 *.docx
 *.txt
 !requirements.txt
+!Anurag_Sajwan_Resume_Oct.pdf
 
 # --- 6. Debug & Archive Scripts ---
 debug_archive/

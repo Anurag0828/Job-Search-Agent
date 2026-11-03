@@ -178,6 +178,9 @@ def cmd_run_all():
     init_database()
     sup = SupervisorAgent()
     result = sup.run_pipeline()
+    if not result:
+        print("\n[FAILURE] Pipeline execution encountered an error.")
+        sys.exit(1)
     print("\n[SUCCESS] Pipeline execution complete!")
     print(f"Summary: {result}")
 

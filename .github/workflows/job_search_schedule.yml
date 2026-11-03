@@ -34,11 +34,23 @@ jobs:
         run: |
           pytest tests/ -v
 
+      - name: Ingest Candidate Resume
+        env:
+          LLM_PROVIDER: nvidia
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          NVIDIA_MODEL: deepseek-ai/deepseek-v4.1-flash
+          EMBEDDING_PROVIDER: nvidia
+          NVIDIA_EMBED_MODEL: nvidia/nemotron-3-embed-1b
+          PYTHONUNBUFFERED: "1"
+        run: |
+          python cli.py ingest --file "Anurag_Sajwan_Resume_Oct.pdf"
+          python cli.py status
+
       - name: Execute Autonomous Job Search Pipeline
         env:
           LLM_PROVIDER: nvidia
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          NVIDIA_MODEL: openai/gpt-oss-20b
+          NVIDIA_MODEL: deepseek-ai/deepseek-v4.1-flash
           EMBEDDING_PROVIDER: nvidia
           NVIDIA_EMBED_MODEL: nvidia/nemotron-3-embed-1b
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
@@ -54,6 +66,9 @@ jobs:
           ENABLE_LINKEDIN_POSTS: "false"
           ENABLE_NAUKRI: "false"
           ENABLE_INDEED: "false"
+          HEADLESS: "true"
+          CI: "true"
+          PYTHONUNBUFFERED: "1"
           LOG_LEVEL: INFO
         run: |
           python cli.py run-all

@@ -75,9 +75,13 @@ class BrowserService:
             # Start Playwright
             self._playwright = await async_playwright().start()
 
-            # Launch Playwright's own Chromium (NOT your Chrome) - HEADFUL to avoid bot detection
+            # Launch Playwright Chromium (headless in CI/cloud environments, headful on local)
+            is_ci = os.environ.get("CI", "").lower() in ("true", "1") or os.environ.get("GITHUB_ACTIONS", "").lower() == "true"
+            is_headless = os.environ.get("HEADLESS", "true" if is_ci else "false").lower() in ("true", "1")
+            
+            print(f"[Browser] Launching browser (headless={is_headless})...")
             self._browser = await self._playwright.chromium.launch(
-                headless=False,
+                headless=is_headless,
                 args=["--disable-blink-features=AutomationControlled"]
             )
 

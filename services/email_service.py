@@ -108,15 +108,23 @@ class EmailService:
             html_part = MIMEText(html_body, "html")
             message.attach(html_part)
 
-            # Step 2: Connect to Gmail SMTP server
+            # Step 2: Connect to Gmail SMTP server (with automatic SSL 465 fallback)
             print(f"[Email] Connecting to {self.smtp_host}:{self.smtp_port}...")
-            server = smtplib.SMTP(self.smtp_host, self.smtp_port)
-
-            # Step 3: Upgrade to encrypted connection
-            server.starttls()
-
-            # Step 4: Authenticate
-            server.login(self.sender, self.password)
+            server = None
+            try:
+                if self.smtp_port == 465:
+                    server = smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=25)
+                else:
+                    server = smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=25)
+                    server.starttls()
+                server.login(self.sender, self.password)
+            except Exception as conn_err:
+                if self.smtp_port != 465 and "smtp.gmail.com" in self.smtp_host:
+                    print(f"[Email] Port {self.smtp_port} attempt failed ({conn_err}). Trying fallback to SSL port 465...")
+                    server = smtplib.SMTP_SSL(self.smtp_host, 465, timeout=25)
+                    server.login(self.sender, self.password)
+                else:
+                    raise conn_err
 
             # Step 5: Send the email
             server.sendmail(self.sender, self.recipient, message.as_string())
@@ -126,10 +134,10 @@ class EmailService:
             server.quit()
             return True
 
-        except smtplib.SMTPAuthenticationError:
-            print(f"[Email] Authentication failed!")
-            print(f"[Email] Make sure you're using a Gmail App Password, NOT your regular password.")
-            print(f"[Email] Create one at: myaccount.google.com > Security > App Passwords")
+        except (smtplib.SMTPAuthenticationError, smtplib.SMTPServerDisconnected) as auth_err:
+            print(f"[Email] Authentication failed / Connection closed ({auth_err})!")
+            print(f"[Email] Make sure you're using a valid Gmail App Password, NOT your regular Google password.")
+            print(f"[Email] Create or refresh one at: https://myaccount.google.com/apppasswords")
             return False
         except Exception as e:
             print(f"[Email] Failed to send: {str(e)}")

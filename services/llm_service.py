@@ -120,7 +120,8 @@ class LLMService:
 
         self.client = OpenAI(
             base_url="https://integrate.api.nvidia.com/v1",
-            api_key=settings.NVIDIA_API_KEY
+            api_key=settings.NVIDIA_API_KEY,
+            timeout=45.0
         )
         # Use the model pool for automatic rotation on rate limits
         self.model_pool = get_model_pool()

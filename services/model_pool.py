@@ -58,10 +58,9 @@ class ModelStatus:
 # ============================================================
 
 DEFAULT_MODELS = [
-    {"name": "openai/gpt-oss-20b", "priority": 1},
-    {"name": "deepseek-ai/deepseek-v4.1-flash", "priority": 2},
-    {"name": "mistralai/mistral-large-2-instruct", "priority": 3},
-    {"name": "meta/llama-3.2-11b-vision-instruct", "priority": 4},
+    {"name": "deepseek-ai/deepseek-v4.1-flash", "priority": 1},
+    {"name": "z-ai/glm-5.3-flash", "priority": 2},
+    {"name": "minimaxai/minimax-m3.1-flash", "priority": 3},
 ]
 
 

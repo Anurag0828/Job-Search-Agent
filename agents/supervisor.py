@@ -136,8 +136,46 @@ class SupervisorAgent:
                 if email_sent:
                     self._stats["recommendations_sent"] = len(final_recs)
             else:
-                print("[Supervisor] No new matching jobs found. Skipping email.")
-                email_sent = True # Consider it a success if we didn't crash
+                print("[Supervisor] No new recommendations from current run. Checking for top scored jobs in database...")
+                db = get_db()
+                try:
+                    fallback_jobs = (
+                        db.query(JobPostingModel)
+                        .filter(
+                            JobPostingModel.match_score.isnot(None),
+                            JobPostingModel.match_score >= settings.MIN_MATCH_SCORE,
+                            JobPostingModel.is_duplicate == False,
+                        )
+                        .order_by(JobPostingModel.match_score.desc())
+                        .limit(settings.MAX_RECOMMENDATIONS)
+                        .all()
+                    )
+                    if fallback_jobs:
+                        from schemas.recommendation import Recommendation
+                        fallback_recs = [
+                            Recommendation(
+                                job_posting_id=j.id,
+                                title=j.title,
+                                company=j.company or "Company",
+                                location=j.location or "India",
+                                job_url=j.url or "",
+                                platform=j.platform or "linkedin_jobs",
+                                match_score=float(j.match_score or 0.0),
+                                rationale=j.match_rationale or "Match based on resume profile.",
+                                missing_skills=j.missing_skills or [],
+                                rank_position=i + 1,
+                            )
+                            for i, j in enumerate(fallback_jobs)
+                        ]
+                        print(f"[Supervisor] Found {len(fallback_recs)} top matched jobs in database for digest.")
+                        email_sent = self._send_email(fallback_recs)
+                        if email_sent:
+                            self._stats["recommendations_sent"] = len(fallback_recs)
+                    else:
+                        print("[Supervisor] No jobs in database above match threshold. Skipping email.")
+                        email_sent = True
+                finally:
+                    db.close()
 
             # Step 8: Update run log
             status = "completed" if email_sent else "partial_failure"
@@ -157,7 +195,7 @@ class SupervisorAgent:
     # ================================================================
 
     def _check_profile(self) -> bool:
-        """Verify that a user profile exists in the database."""
+        """Verify that a user profile exists in the database. If not, auto-ingest candidate resume."""
         db = get_db()
         try:
             profile = db.query(UserProfileModel).first()
@@ -165,6 +203,26 @@ class SupervisorAgent:
                 print(f"[Supervisor] Profile found: {profile.full_name} "
                       f"({len(profile.skills or [])} skills)")
                 return True
+
+            print("[Supervisor] No profile found in DB. Searching for resume to auto-ingest...")
+            import glob
+            from services.resume_rag_service import get_rag_service
+
+            candidate_resumes = (
+                glob.glob("*Resume*.pdf")
+                + glob.glob("*.pdf")
+                + glob.glob("uploads/*.pdf")
+            )
+            if candidate_resumes:
+                resume_file = candidate_resumes[0]
+                print(f"[Supervisor] Auto-ingesting detected resume: {resume_file}")
+                rag = get_rag_service()
+                rag.ingest_resume(resume_file)
+                profile = db.query(UserProfileModel).first()
+                if profile:
+                    print(f"[Supervisor] Successfully auto-ingested profile: {profile.full_name}")
+                    return True
+
             return False
         finally:
             db.close()
