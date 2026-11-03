@@ -58,9 +58,9 @@ class ModelStatus:
 # ============================================================
 
 DEFAULT_MODELS = [
-    {"name": "deepseek-ai/deepseek-v4.1-flash", "priority": 1},
-    {"name": "z-ai/glm-5.3-flash", "priority": 2},
-    {"name": "minimaxai/minimax-m3.1-flash", "priority": 3},
+    {"name": "nvidia/nemotron-3.5-bolt-e4b", "priority": 1},
+    {"name": "poolside/laguna-xs-2.1", "priority": 2},
+    {"name": "nvidia/nemotron-3-ultra-550b-a55b", "priority": 3},
 ]
 
 

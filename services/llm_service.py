@@ -321,18 +321,14 @@ class LLMService:
             "max_tokens": max_tokens,
         }
 
-        # Enable thinking/reasoning effort for DeepSeek or reasoning models on NVIDIA NIM!
-        if "deepseek" in self.model.lower() or "reasoning" in self.model.lower():
-            kwargs["extra_body"] = {"chat_template_kwargs": {"thinking": True, "reasoning_effort": "high"}}
-
         response = self.client.chat.completions.create(**kwargs)
 
         msg = response.choices[0].message
         reasoning = getattr(msg, "reasoning", None) or getattr(msg, "reasoning_content", None)
         if reasoning:
-            print(f"[LLM Thinking]: {reasoning[:300]}...")
+            print(f"[LLM Thinking]: {reasoning[:200]}...")
 
-        return msg.content
+        return msg.content or reasoning or ""
 
     def _call_gemini(
         self, prompt: str, system_prompt: Optional[str],

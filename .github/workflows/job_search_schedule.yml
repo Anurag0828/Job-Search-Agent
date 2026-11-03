@@ -38,7 +38,7 @@ jobs:
         env:
           LLM_PROVIDER: nvidia
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          NVIDIA_MODEL: deepseek-ai/deepseek-v4.1-flash
+          NVIDIA_MODEL: nvidia/nemotron-3.5-bolt-e4b
           EMBEDDING_PROVIDER: nvidia
           NVIDIA_EMBED_MODEL: nvidia/nemotron-3-embed-1b
           PYTHONUNBUFFERED: "1"
@@ -61,7 +61,7 @@ jobs:
         env:
           LLM_PROVIDER: nvidia
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          NVIDIA_MODEL: deepseek-ai/deepseek-v4.1-flash
+          NVIDIA_MODEL: nvidia/nemotron-3.5-bolt-e4b
           EMBEDDING_PROVIDER: nvidia
           NVIDIA_EMBED_MODEL: nvidia/nemotron-3-embed-1b
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}

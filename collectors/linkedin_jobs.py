@@ -122,6 +122,12 @@ class LinkedInJobsCollector(BaseCollector):
             print(f"[LinkedIn] Note: page.goto threw an error (possibly a redirect): {e}")
         await self.browser.human_delay(1.5, 2.5)
 
+        # Check if direct URL navigation loaded job cards immediately
+        existing_cards = await page.query_selector_all(SELECTORS["job_cards"])
+        if existing_cards:
+            print(f"[LinkedIn] Direct search URL loaded {len(existing_cards)} fresh jobs successfully.")
+            return
+
         # Step 2: Fill in the search keyword
         print(f"[LinkedIn] Searching for: '{query}'...")
         try:

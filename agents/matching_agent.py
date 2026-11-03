@@ -197,6 +197,17 @@ class MatchingAgent:
             job["vector_score"] = result_map.get(job.get("url"), 0.0)
             candidates.append(job)
 
+        # Robustness guarantee: If global vector store has thousands of old embeddings that crowded the top-k results,
+        # ensure fresh candidate jobs are still passed to Layer 2 up to top_k!
+        if len(candidates) < min(top_k, len(jobs)):
+            candidate_urls = {c.get("url") for c in candidates}
+            for job in jobs:
+                if job.get("url") not in candidate_urls:
+                    job["vector_score"] = 0.65
+                    candidates.append(job)
+                    if len(candidates) >= top_k:
+                        break
+
         return candidates
 
     # ================================================================
@@ -434,13 +445,37 @@ Return ONLY the JSON, no other text.
         finally:
             db.close()
 
-    def _load_unmatched_jobs(self) -> list[dict]:
-        """Load jobs that haven't been matched yet."""
+    def _load_unmatched_jobs(self, limit: int = 40) -> list[dict]:
+        """Load fresh jobs that haven't been matched yet, prioritizing newest postings."""
+        from datetime import datetime, timedelta
         db = get_db()
         try:
-            jobs = db.query(JobPostingModel).filter(
-                JobPostingModel.match_score.is_(None)
-            ).all()
+            # Step 1: Prioritize jobs collected within the last 48 hours
+            cutoff_48h = datetime.now() - timedelta(days=2)
+            jobs = (
+                db.query(JobPostingModel)
+                .filter(
+                    JobPostingModel.match_score.is_(None),
+                    JobPostingModel.collected_at >= cutoff_48h,
+                )
+                .order_by(JobPostingModel.collected_at.desc())
+                .limit(limit)
+                .all()
+            )
+            # Step 2: Fallback to jobs within the last 7 days if no 48h jobs exist
+            if not jobs:
+                cutoff_7d = datetime.now() - timedelta(days=7)
+                jobs = (
+                    db.query(JobPostingModel)
+                    .filter(
+                        JobPostingModel.match_score.is_(None),
+                        JobPostingModel.collected_at >= cutoff_7d,
+                    )
+                    .order_by(JobPostingModel.collected_at.desc())
+                    .limit(limit)
+                    .all()
+                )
+
             return [
                 {
                     "id": j.id,

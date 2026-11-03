@@ -235,19 +235,21 @@ class RankingAgent:
         """
         db = get_db()
         try:
+            cutoff_48h = datetime.now() - timedelta(days=2)
             query = db.query(JobPostingModel).filter(
                 JobPostingModel.match_score.isnot(None),
                 JobPostingModel.is_recommended == False,
                 JobPostingModel.is_duplicate == False,
+                JobPostingModel.collected_at >= cutoff_48h,
             )
             if run_id:
-                # Only jobs from this pipeline run
-                query = query.filter(JobPostingModel.run_id == run_id)
+                # Prioritize jobs from this pipeline run
+                jobs = query.filter(JobPostingModel.run_id == run_id).order_by(JobPostingModel.match_score.desc()).all()
+                if not jobs:
+                    # Fallback to any fresh unrecommended jobs collected in the last 48 hours
+                    jobs = query.order_by(JobPostingModel.match_score.desc()).all()
             else:
-                # Fallback: only jobs collected in the last 24 hours
-                cutoff = datetime.now() - timedelta(hours=24)
-                query = query.filter(JobPostingModel.collected_at >= cutoff)
-            jobs = query.order_by(JobPostingModel.match_score.desc()).all()
+                jobs = query.order_by(JobPostingModel.match_score.desc()).all()
             return jobs
         finally:
             db.close()

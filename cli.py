@@ -132,16 +132,32 @@ def cmd_email():
         print("[CLI] No new unrecommended jobs from this run. Falling back to fresh scored jobs in DB...")
         db = get_db()
         try:
+            from datetime import datetime, timedelta
+            cutoff_48h = datetime.now() - timedelta(days=2)
             top_jobs = (
                 db.query(JobPostingModel)
                 .filter(
                     JobPostingModel.match_score.isnot(None),
                     JobPostingModel.match_score >= 65,
+                    JobPostingModel.collected_at >= cutoff_48h,
                 )
                 .order_by(JobPostingModel.collected_at.desc(), JobPostingModel.match_score.desc())
                 .limit(30)
                 .all()
             )
+            if not top_jobs:
+                cutoff_7d = datetime.now() - timedelta(days=7)
+                top_jobs = (
+                    db.query(JobPostingModel)
+                    .filter(
+                        JobPostingModel.match_score.isnot(None),
+                        JobPostingModel.match_score >= 65,
+                        JobPostingModel.collected_at >= cutoff_7d,
+                    )
+                    .order_by(JobPostingModel.collected_at.desc(), JobPostingModel.match_score.desc())
+                    .limit(30)
+                    .all()
+                )
             # Deduplicate by title & company
             seen_title_company = set()
             unique_top_jobs = []

@@ -139,11 +139,15 @@ class SupervisorAgent:
                 print("[Supervisor] No new recommendations from current run. Checking for fresh scored jobs in database...")
                 db = get_db()
                 try:
+                    from datetime import datetime, timedelta
+                    cutoff_time = datetime.now() - timedelta(days=2)
                     fallback_jobs = (
                         db.query(JobPostingModel)
                         .filter(
                             JobPostingModel.match_score.isnot(None),
                             JobPostingModel.match_score >= settings.MIN_MATCH_SCORE,
+                            JobPostingModel.is_recommended == False,
+                            JobPostingModel.collected_at >= cutoff_time,
                         )
                         .order_by(JobPostingModel.collected_at.desc(), JobPostingModel.match_score.desc())
                         .limit(settings.MAX_RECOMMENDATIONS * 3)
@@ -340,7 +344,9 @@ class SupervisorAgent:
                 ).first()
 
                 if existing:
-                    continue  # Skip — already in database
+                    if not existing.is_recommended:
+                        existing.run_id = self._run_id
+                    continue  # Skip inserting duplicate
 
                 db_job = JobPostingModel(
                     title=job_dict.get("title", ""),
@@ -377,7 +383,7 @@ class SupervisorAgent:
         from agents.matching_agent import MatchingAgent
         try:
             agent = MatchingAgent()
-            return agent.match_jobs()
+            return agent.match_jobs(top_k_vector=10, top_k_final=10)
         except Exception as e:
             print(f"[Supervisor] Matching failed: {e}")
             return []
