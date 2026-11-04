@@ -29,6 +29,7 @@ import os
 import sys
 import argparse
 from typing import Optional
+from datetime import datetime, timedelta
 
 # Ensure project root is in Python path
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -132,7 +133,6 @@ def cmd_email():
         print("[CLI] No new unrecommended jobs from this run. Falling back to fresh scored jobs in DB...")
         db = get_db()
         try:
-            from datetime import datetime, timedelta
             cutoff_48h = datetime.now() - timedelta(days=2)
             top_jobs = (
                 db.query(JobPostingModel)

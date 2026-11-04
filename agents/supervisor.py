@@ -36,7 +36,7 @@
 # ============================================================
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from database.connection import get_db
 from database.models import RunLogModel, JobPostingModel, UserProfileModel
@@ -139,7 +139,6 @@ class SupervisorAgent:
                 print("[Supervisor] No new recommendations from current run. Checking for fresh scored jobs in database...")
                 db = get_db()
                 try:
-                    from datetime import datetime, timedelta
                     cutoff_time = datetime.now() - timedelta(days=2)
                     fallback_jobs = (
                         db.query(JobPostingModel)
